@@ -1,5 +1,10 @@
 # Moonlight
 
+this is an unofficial port of Moonlight for the Daydream platform.
+It's based on the work of alandao https://github.com/alandao/moonlight-android.
+You can use the touchpad to resize the virtual screen.
+Download here https://goo.gl/Mw6uuR
+
 [Moonlight](http://moonlight-stream.com) is an open source implementation of NVIDIA's GameStream, as used by the NVIDIA Shield.
 We reverse engineered the Shield streaming software and created a version that can be run on any Android device.
 
