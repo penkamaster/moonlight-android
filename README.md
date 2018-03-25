@@ -1,6 +1,6 @@
 # Moonlight
 
-this is an unofficial port of Moonlight for the Daydream platform.
+This is an unofficial port of Moonlight for the Daydream platform.
 It's based on the work of alandao https://github.com/alandao/moonlight-android.
 You can use the touchpad to resize the virtual screen.
 Download here https://goo.gl/Mw6uuR
