@@ -11,7 +11,7 @@
             android:entries="@array/resolution_names"
             android:entryValues="@array/resolution_values"
             android:defaultValue="720p60" />
-        <com.limelight.preferences.SeekBarPreference
+        <com.limelightDaydream.preferences.SeekBarPreference
             android:key="seekbar_bitrate_kbps"
             android:dialogMessage="@string/summary_seekbar_bitrate"
             seekbar:min="500"
@@ -20,6 +20,13 @@
             android:summary="@string/summary_seekbar_bitrate"
             android:text="@string/suffix_seekbar_bitrate"
             android:title="@string/title_seekbar_bitrate" />
+
+        <CheckBoxPreference
+            android:key="checkbox_daydream"
+            android:title="@string/title_checkbox_daydream"
+            android:summary="@string/title_checkbox_daydream"
+            android:defaultValue="true" />
+
         <CheckBoxPreference
             android:key="checkbox_stretch_video"
             android:title="@string/title_checkbox_stretch_video"
@@ -43,7 +50,7 @@
             android:defaultValue="false" />
     </PreferenceCategory>
     <PreferenceCategory android:title="@string/category_gamepad_settings">
-        <!--com.limelight.preferences.SeekBarPreference
+        SeekBarPreferenceence
             android:key="seekbar_deadzone"
             android:defaultValue="15"
             android:max="50"
@@ -84,7 +91,7 @@
             android:key="checkbox_only_show_L3R3"
             android:summary="@string/summary_only_l3r3"
             android:title="@string/title_only_l3r3" />
-        <com.limelight.preferences.ConfirmDeleteOscPreference
+        <com.limelightDaydream.preferences.ConfirmDeleteOscPreference
             android:title="@string/title_reset_osc"
             android:summary="@string/summary_reset_osc"
             android:dialogTitle="@string/dialog_title_reset_osc"
@@ -114,7 +121,7 @@
             android:entryValues="@array/language_values"
             android:summary="@string/summary_language_list"
             android:defaultValue="default" />
-        <com.limelight.preferences.SmallIconCheckboxPreference
+        <com.limelightDaydream.preferences.SmallIconCheckboxPreference
             android:key="checkbox_small_icon_mode"
             android:title="@string/title_checkbox_small_icon_mode"
             android:summary="@string/summary_checkbox_small_icon_mode" />
