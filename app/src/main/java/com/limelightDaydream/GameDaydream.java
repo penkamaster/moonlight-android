@@ -16,12 +16,16 @@ import android.media.AudioManager;
 import android.net.ConnectivityManager;
 import android.net.wifi.WifiManager;
 import android.opengl.GLSurfaceView;
+
+import android.opengl.Matrix;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.SystemClock;
+
+import android.renderscript.Matrix4f;
 import android.util.Log;
 import android.view.Display;
 import android.view.InputDevice;
@@ -36,7 +40,12 @@ import android.view.inputmethod.InputMethodManager;
 
 import com.google.vr.ndk.base.AndroidCompat;
 import com.google.vr.ndk.base.DaydreamApi;
+import com.google.vr.ndk.base.GvrApi;
 import com.google.vr.ndk.base.GvrLayout;
+import com.google.vr.sdk.base.Eye;
+import com.google.vr.sdk.base.GvrView;
+import com.google.vr.sdk.base.HeadTransform;
+import com.google.vr.sdk.base.Viewport;
 import com.google.vr.sdk.controller.Controller;
 import com.google.vr.sdk.controller.Controller.ConnectionStates;
 import com.google.vr.sdk.controller.ControllerManager;
@@ -68,6 +77,8 @@ import com.limelightDaydream.utils.Dialog;
 import com.limelightDaydream.utils.SpinnerDialog;
 import com.limelightDaydream.utils.UiHelper;
 import com.limelightDaydream.vr.VideoSceneRenderer;
+
+import javax.microedition.khronos.egl.EGLConfig;
 
 
 public class GameDaydream extends Activity implements
@@ -127,7 +138,7 @@ public class GameDaydream extends Activity implements
     // Transform a quad that fills the clip box at Z=0 to a 16:9 screen at Z=-98. Note that the matrix
     // is column-major, so the translation is on the last line in this representation.
 
-    private final float[] videoTransform = {
+    private float[] videoTransform = {
             1.6f, 0.0f, 0.0f, 0.0f,
             0.0f, 0.9f, 0.0f, 0.0f,
             0.0f, 0.0f, 1.0f, 0.0f,
@@ -146,10 +157,10 @@ public class GameDaydream extends Activity implements
             };
 
     private boolean connectedToUsbDriverService = false;
+    private GvrApi api;
+    private float[] headView;
+    private float[] headRotation;
 
-
-
-    private DaydreamApi api;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
@@ -1243,30 +1254,6 @@ public class GameDaydream extends Activity implements
         }
     }
 
-    /*@Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-    }
-
-    @Override
-    public void surfaceCreated(SurfaceHolder holder) {
-        if (!connected && !connecting) {
-            connecting = true;
-
-            decoderRenderer.setRenderTarget(holder);
-            conn.start(PlatformBinding.getAudioRenderer(), decoderRenderer, GameDaydream.this);
-        }
-    }
-
-    @Override
-    public void surfaceDestroyed(SurfaceHolder holder) {
-        // Let the decoder know immediately that the surface is gone
-        decoderRenderer.prepareForStop();
-
-        if (connected) {
-            stopConnection();
-        }
-    }*/
-
     @Override
     public void mouseMove(int deltaX, int deltaY) {
         conn.sendMouseMove((short) deltaX, (short) deltaY);
@@ -1335,37 +1322,20 @@ public class GameDaydream extends Activity implements
                                 | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
     }
 
-    /*@Override
-    public void onSystemUiVisibilityChange(int visibility) {
-        // Don't do anything if we're not connected
-        if (!connected) {
-            return;
-        }
-
-        // This flag is set for all devices
-        if ((visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
-            hideSystemUi(2000);
-        }
-        // This flag is only set on 4.4+
-        else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT &&
-                 (visibility & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0) {
-            hideSystemUi(2000);
-        }
-        // This flag is only set before 4.4+
-        else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT &&
-                 (visibility & View.SYSTEM_UI_FLAG_LOW_PROFILE) == 0) {
-            hideSystemUi(2000);
-        }
-    }*/
     private class EventListener extends Controller.EventListener
             implements ControllerManager.EventListener, Runnable {
 
         // The status of the overall controller API. This is primarily used for error handling since
         // it rarely changes.
-        private String apiStatus;
+
         float lastY =  0;
         float deltaY = 0;
-        float aux = 0;
+        float auxY = 0;
+
+        float lastX =  0;
+        float deltaX = 0;
+
+
         final float limitY= -1.2274516f;
         boolean noTouch = false;
 
@@ -1374,79 +1344,66 @@ public class GameDaydream extends Activity implements
 
         @Override
         public void onApiStatusChanged(int state) {
-            apiStatus = ApiStatus.toString(state);
-            LimeLog.info("chacho apiStatus: " + apiStatus);
-
-
         }
 
         @Override
         public void onConnectionStateChanged(int state) {
             controllerState = state;
-            LimeLog.info("chacho controllerState: " + getString(controllerState));
         }
 
         @Override
         public void onRecentered() {
+
+            api = gvrLayout.getGvrApi();
+
+            //api.getHeadSpaceFromStartSpaceRotation( headFromWorld, System.nanoTime() + predictionOffsetNanos);
+
+            /*Matrix4f matriz = new Matrix4f(videoTransform);
+                    matriz.rotate(15 ,0,0,1);
+                    renderer.setVideoTransform(matriz.getArray());
+                    matriz.getArray();*/
+
             // In a real GVR application, this would have implicitly called recenterHeadTracker().
             // Most apps don't care about this, but apps that want to implement custom behavior when a
             // recentering occurs should use this callback.
             //controllerOrientationView.resetYaw();
-            LimeLog.info("chacho [Recentered]");
-        }
 
+
+        }
+        float rot = 0.1f;
         @Override
         public void onUpdate() {
-
-
-
-
             controller.update();
             if (controller.isTouching) {
                 if (noTouch == true){ //acabamos de tocar, guardamos la posicion inicial
                     noTouch = false;
                 }else{
+
                     deltaY =  controller.touch.y - lastY;
-                    aux = videoTransform[14] + deltaY;
-                    if (limitY > aux) {
-                        videoTransform[14] = aux;
+                    deltaX =  controller.touch.x - lastX;
+
+                    auxY = videoTransform[14] + deltaY;
+                    if (limitY > auxY) {
+                        videoTransform[14] = auxY;
                         renderer.setVideoTransform(videoTransform);
                     }
                 }
-                lastY = controller.touch.y;
-                LimeLog.info("chacho videoTransform[14]= " + videoTransform[14]);
-
+                lastY = controller.touch.y; //los guardamos para la proxima
+                lastX = controller.touch.x;
             } else {
-
                 lastY = 0;
+                lastX = 0;
                 noTouch = true;
-
-
             }
         }
 
         // Update the various TextViews in the UI thread.
         @Override
         public void run() {
-            LimeLog.info("chacho pijo!!!");
+
             controller.update();
-
-            LimeLog.info("chacho run Controller Orientation: " + controller.orientation);
-
-
-
             float[] angles = new float[3];
             controller.orientation.toYawPitchRollDegrees(angles);
-
-
-            if (controller.isTouching) {
-                LimeLog.info("chacho pasamos 1");
-                LimeLog.info(String.format("chacho Touch x,y =  [%4.2f, %4.2f]", controller.touch.x, controller.touch.y));
-            } else {
-                LimeLog.info("chacho pasamos 2");
-                LimeLog.info(String.format("chacho [ NO TOUCH ]"));
-
-            }
         }
     }
 }
