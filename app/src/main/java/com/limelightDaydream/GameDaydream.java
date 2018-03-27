@@ -395,7 +395,7 @@ public class GameDaydream extends Activity implements
                 .setHevcSupported(decoderRenderer.isHevcSupported())
                 .setEnableHdr(willStreamHdr)
                 .setAttachedGamepadMask(gamepadMask)
-                .setClientRefreshRateX100((int)(60.000004 * 100))
+                .setClientRefreshRateX100((prefConfig.fps * 100))
                 .setAudioConfiguration(prefConfig.enable51Surround ?
                         MoonBridge.AUDIO_CONFIGURATION_51_SURROUND :
                         MoonBridge.AUDIO_CONFIGURATION_STEREO)
@@ -511,10 +511,6 @@ public class GameDaydream extends Activity implements
         }
 
         if (!decoderRenderer.isAvcSupported()) {
-            if (spinner != null) {
-                spinner.dismiss();
-                spinner = null;
-            }
 
             // If we can't find an AVC decoder, we can't proceed
             Dialog.displayDialog(this, getResources().getString(R.string.conn_error_title),
@@ -1336,7 +1332,7 @@ public class GameDaydream extends Activity implements
         float deltaX = 0;
 
 
-        final float limitY= -1.2274516f;
+        final float limitY= -0.0001f;
         boolean noTouch = false;
 
         // The state of a specific Controller connection.

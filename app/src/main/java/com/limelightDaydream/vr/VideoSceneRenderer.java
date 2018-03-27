@@ -35,7 +35,6 @@ import java.util.concurrent.TimeUnit;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
-
 /**
  * The main app renderer. Draws the scene the video is displayed in a color buffer, and signals to
  * the GvrApi to render video from the ExternalSurface at the specified ID.
@@ -48,7 +47,7 @@ public class VideoSceneRenderer implements Renderer {
   // this buffer is bound.
   public static final int INDEX_SCENE_BUFFER = 0;
   // The scene's clipping planes.
-  private static final float NEAR_PLANE = 1.0f;
+  private static final float NEAR_PLANE = 0.00001f;
   private static final float FAR_PLANE = 10.0f;
 
   private final Context context;
@@ -78,7 +77,6 @@ public class VideoSceneRenderer implements Renderer {
   private final RectF eyeFov = new RectF();
   private final RectF eyeUv = new RectF();
   private final Point targetSize = new Point();
-
   public VideoSceneRenderer(Context context, GvrApi api, Settings settings) {
     this.context = context;
     this.api = api;
