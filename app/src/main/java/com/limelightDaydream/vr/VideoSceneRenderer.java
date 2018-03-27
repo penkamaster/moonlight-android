@@ -270,7 +270,7 @@ public class VideoSceneRenderer implements Renderer {
     // rate achieved by the video decoder. If everything works correctly, the bar should always be
     // green.
     frame.bindBuffer(INDEX_SCENE_BUFFER);
-    GLES20.glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+    GLES20.glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
     GLES20.glDisable(GLES20.GL_DEPTH_TEST);
     GLUtil.checkGlError(TAG, "new frame");
