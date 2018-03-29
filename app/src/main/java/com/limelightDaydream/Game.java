@@ -139,304 +139,287 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (PreferenceConfiguration.readPreferences(this).enableDaydream) {
-            api = DaydreamApi.create(Game.this);
-            if (api  != null) {
-                //Intent intent = DaydreamApi.createVrIntent(new ComponentName(this, GameDaydream.class));
-                //intent.putExtras(Game.this.getIntent());
-                //startActivity(intent);
 
-                Intent intent = DaydreamApi.createVrIntent(
-                        new ComponentName(Game.this, GameDaydream.class));
-                intent.setData(Game.this.getIntent().getData());
-                intent.putExtras(Game.this.getIntent().getExtras());
-                api.launchInVr(intent);
-                api.close();
-            }else{
-                //TODO CARDBOARD SUPPORT
-            }
-            finish();
-        }else{
-            UiHelper.setLocale(this);
+        UiHelper.setLocale(this);
 
-            // We don't want a title bar
-            requestWindowFeature(Window.FEATURE_NO_TITLE);
+        // We don't want a title bar
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
 
-            // Full-screen and don't let the display go off
-            getWindow().addFlags(
-                    WindowManager.LayoutParams.FLAG_FULLSCREEN |
-                            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        // Full-screen and don't let the display go off
+        getWindow().addFlags(
+                WindowManager.LayoutParams.FLAG_FULLSCREEN |
+                        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-            // If we're going to use immersive mode, we want to have
-            // the entire screen
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
-                getWindow().getDecorView().setSystemUiVisibility(
-                        View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
-                                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
-                                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+        // If we're going to use immersive mode, we want to have
+        // the entire screen
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
+            getWindow().getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
+                            View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+                            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
 
-                getWindow().addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN);
-            }
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN);
+        }
 
-            // We specified userLandscape in the manifest which isn't supported until 4.3,
-            // so we must fall back at runtime to sensorLandscape.
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2) {
-                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
-            }
+        // We specified userLandscape in the manifest which isn't supported until 4.3,
+        // so we must fall back at runtime to sensorLandscape.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2) {
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+        }
 
-            // Listen for UI visibility events
-            getWindow().getDecorView().setOnSystemUiVisibilityChangeListener(this);
+        // Listen for UI visibility events
+        getWindow().getDecorView().setOnSystemUiVisibilityChangeListener(this);
 
-            // Change volume button behavior
-            setVolumeControlStream(AudioManager.STREAM_MUSIC);
+        // Change volume button behavior
+        setVolumeControlStream(AudioManager.STREAM_MUSIC);
 
-            // Inflate the content
-            setContentView(R.layout.activity_game);
+        // Inflate the content
+        setContentView(R.layout.activity_game);
 
-            // Start the spinner
-            spinner = SpinnerDialog.displayDialog(this, getResources().getString(R.string.conn_establishing_title),
-                    getResources().getString(R.string.conn_establishing_msg), true);
+        // Start the spinner
+        spinner = SpinnerDialog.displayDialog(this, getResources().getString(R.string.conn_establishing_title),
+                getResources().getString(R.string.conn_establishing_msg), true);
 
-            // Read the stream preferences
-            prefConfig = PreferenceConfiguration.readPreferences(this);
-            tombstonePrefs = Game.this.getSharedPreferences("DecoderTombstone", 0);
+        // Read the stream preferences
+        prefConfig = PreferenceConfiguration.readPreferences(this);
+        tombstonePrefs = Game.this.getSharedPreferences("DecoderTombstone", 0);
 
 
-            // Listen for events on the game surface
-            streamView = findViewById(R.id.surfaceView);
-            streamView.setOnGenericMotionListener(this);
-            streamView.setOnTouchListener(this);
+        // Listen for events on the game surface
+        streamView = findViewById(R.id.surfaceView);
+        streamView.setOnGenericMotionListener(this);
+        streamView.setOnTouchListener(this);
 
-            inputCaptureProvider = InputCaptureManager.getInputCaptureProvider(this, this);
+        inputCaptureProvider = InputCaptureManager.getInputCaptureProvider(this, this);
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                // The view must be focusable for pointer capture to work.
-                streamView.setFocusable(true);
-                streamView.setDefaultFocusHighlightEnabled(false);
-                streamView.setOnCapturedPointerListener(new View.OnCapturedPointerListener() {
-                    @Override
-                    public boolean onCapturedPointer(View view, MotionEvent motionEvent) {
-                        return handleMotionEvent(motionEvent);
-                    }
-                });
-            }
-
-            // Warn the user if they're on a metered connection
-            ConnectivityManager connMgr = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-            if (connMgr.isActiveNetworkMetered()) {
-                displayTransientMessage(getResources().getString(R.string.conn_metered));
-            }
-
-            // Make sure Wi-Fi is fully powered up
-            WifiManager wifiMgr = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-            wifiLock = wifiMgr.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Limelight");
-            wifiLock.setReferenceCounted(false);
-            wifiLock.acquire();
-
-            String host = Game.this.getIntent().getStringExtra(EXTRA_HOST);
-            String appName = Game.this.getIntent().getStringExtra(EXTRA_APP_NAME);
-            int appId = Game.this.getIntent().getIntExtra(EXTRA_APP_ID, StreamConfiguration.INVALID_APP_ID);
-            String uniqueId = Game.this.getIntent().getStringExtra(EXTRA_UNIQUEID);
-            boolean remote = Game.this.getIntent().getBooleanExtra(EXTRA_STREAMING_REMOTE, false);
-            String uuid = Game.this.getIntent().getStringExtra(EXTRA_PC_UUID);
-            String pcName = Game.this.getIntent().getStringExtra(EXTRA_PC_NAME);
-            boolean willStreamHdr = Game.this.getIntent().getBooleanExtra(EXTRA_APP_HDR, false);
-
-            if (appId == StreamConfiguration.INVALID_APP_ID) {
-                finish();
-                return;
-            }
-
-            // Add a launcher shortcut for this PC (forced, since this is user interaction)
-            shortcutHelper = new ShortcutHelper(this);
-            shortcutHelper.createAppViewShortcut(uuid, pcName, uuid, true);
-            shortcutHelper.reportShortcutUsed(uuid);
-
-            // Initialize the MediaCodec helper before creating the decoder
-            GlPreferences glPrefs = GlPreferences.readPreferences(this);
-            MediaCodecHelper.initialize(this, glPrefs.glRenderer);
-
-            // Check if the user has enabled HDR
-            if (prefConfig.enableHdr) {
-                // Check if the app supports it
-                if (!willStreamHdr) {
-                    Toast.makeText(this, "This game does not support HDR10", Toast.LENGTH_SHORT).show();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // The view must be focusable for pointer capture to work.
+            streamView.setFocusable(true);
+            streamView.setDefaultFocusHighlightEnabled(false);
+            streamView.setOnCapturedPointerListener(new View.OnCapturedPointerListener() {
+                @Override
+                public boolean onCapturedPointer(View view, MotionEvent motionEvent) {
+                    return handleMotionEvent(motionEvent);
                 }
-                // It does, so start our HDR checklist
-                else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    // We already know the app supports HDR if willStreamHdr is set.
-                    Display display = getWindowManager().getDefaultDisplay();
-                    Display.HdrCapabilities hdrCaps = display.getHdrCapabilities();
+            });
+        }
 
-                    // We must now ensure our display is compatible with HDR10
-                    boolean foundHdr10 = false;
-                    for (int hdrType : hdrCaps.getSupportedHdrTypes()) {
-                        if (hdrType == Display.HdrCapabilities.HDR_TYPE_HDR10) {
-                            LimeLog.info("Display supports HDR10");
-                            foundHdr10 = true;
-                        }
-                    }
+        // Warn the user if they're on a metered connection
+        ConnectivityManager connMgr = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connMgr.isActiveNetworkMetered()) {
+            displayTransientMessage(getResources().getString(R.string.conn_metered));
+        }
 
-                    if (!foundHdr10) {
-                        // Nope, no HDR for us :(
-                        willStreamHdr = false;
-                        Toast.makeText(this, "Display does not support HDR10", Toast.LENGTH_LONG).show();
+        // Make sure Wi-Fi is fully powered up
+        WifiManager wifiMgr = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        wifiLock = wifiMgr.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Limelight");
+        wifiLock.setReferenceCounted(false);
+        wifiLock.acquire();
+
+        String host = Game.this.getIntent().getStringExtra(EXTRA_HOST);
+        String appName = Game.this.getIntent().getStringExtra(EXTRA_APP_NAME);
+        int appId = Game.this.getIntent().getIntExtra(EXTRA_APP_ID, StreamConfiguration.INVALID_APP_ID);
+        String uniqueId = Game.this.getIntent().getStringExtra(EXTRA_UNIQUEID);
+        boolean remote = Game.this.getIntent().getBooleanExtra(EXTRA_STREAMING_REMOTE, false);
+        String uuid = Game.this.getIntent().getStringExtra(EXTRA_PC_UUID);
+        String pcName = Game.this.getIntent().getStringExtra(EXTRA_PC_NAME);
+        boolean willStreamHdr = Game.this.getIntent().getBooleanExtra(EXTRA_APP_HDR, false);
+
+        if (appId == StreamConfiguration.INVALID_APP_ID) {
+            finish();
+            return;
+        }
+
+        // Add a launcher shortcut for this PC (forced, since this is user interaction)
+        shortcutHelper = new ShortcutHelper(this);
+        shortcutHelper.createAppViewShortcut(uuid, pcName, uuid, true);
+        shortcutHelper.reportShortcutUsed(uuid);
+
+        // Initialize the MediaCodec helper before creating the decoder
+        GlPreferences glPrefs = GlPreferences.readPreferences(this);
+        MediaCodecHelper.initialize(this, glPrefs.glRenderer);
+
+        // Check if the user has enabled HDR
+        if (prefConfig.enableHdr) {
+            // Check if the app supports it
+            if (!willStreamHdr) {
+                Toast.makeText(this, "This game does not support HDR10", Toast.LENGTH_SHORT).show();
+            }
+            // It does, so start our HDR checklist
+            else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                // We already know the app supports HDR if willStreamHdr is set.
+                Display display = getWindowManager().getDefaultDisplay();
+                Display.HdrCapabilities hdrCaps = display.getHdrCapabilities();
+
+                // We must now ensure our display is compatible with HDR10
+                boolean foundHdr10 = false;
+                for (int hdrType : hdrCaps.getSupportedHdrTypes()) {
+                    if (hdrType == Display.HdrCapabilities.HDR_TYPE_HDR10) {
+                        LimeLog.info("Display supports HDR10");
+                        foundHdr10 = true;
                     }
-                } else {
-                    Toast.makeText(this, "HDR requires Android 7.0 or later", Toast.LENGTH_LONG).show();
+                }
+
+                if (!foundHdr10) {
+                    // Nope, no HDR for us :(
                     willStreamHdr = false;
+                    Toast.makeText(this, "Display does not support HDR10", Toast.LENGTH_LONG).show();
                 }
             } else {
+                Toast.makeText(this, "HDR requires Android 7.0 or later", Toast.LENGTH_LONG).show();
                 willStreamHdr = false;
             }
-
-            decoderRenderer = new MediaCodecDecoderRenderer(prefConfig,
-                    new CrashListener() {
-                        @Override
-                        public void notifyCrash(Exception e) {
-                            // The MediaCodec instance is going down due to a crash
-                            // let's tell the user something when they open the app again
-
-                            // We must use commit because the app will crash when we return from this function
-                            tombstonePrefs.edit().putInt("CrashCount", tombstonePrefs.getInt("CrashCount", 0) + 1).commit();
-                            reportedCrash = true;
-                        }
-                    },
-                    tombstonePrefs.getInt("CrashCount", 0),
-                    connMgr.isActiveNetworkMetered(),
-                    willStreamHdr,
-                    glPrefs.glRenderer
-            );
-
-            // Don't stream HDR if the decoder can't support it
-            if (willStreamHdr && !decoderRenderer.isHevcMain10Hdr10Supported()) {
-                willStreamHdr = false;
-                Toast.makeText(this, "Decoder does not support HEVC Main10HDR10", Toast.LENGTH_LONG).show();
-            }
-
-            // Display a message to the user if H.265 was forced on but we still didn't find a decoder
-            if (prefConfig.videoFormat == PreferenceConfiguration.FORCE_H265_ON && !decoderRenderer.isHevcSupported()) {
-                Toast.makeText(this, "No H.265 decoder found.\nFalling back to H.264.", Toast.LENGTH_LONG).show();
-            }
-
-            int gamepadMask = ControllerHandler.getAttachedControllerMask(this);
-            if (!prefConfig.multiController && gamepadMask != 0) {
-                // If any gamepads are present in non-MC mode, set only gamepad 1.
-                gamepadMask = 1;
-            }
-            if (prefConfig.onscreenController) {
-                // If we're using OSC, always set at least gamepad 1.
-                gamepadMask |= 1;
-            }
-
-            // Set to the optimal mode for streaming
-            float displayRefreshRate = prepareDisplayForRendering();
-            LimeLog.info("Display refresh rate: " + displayRefreshRate);
-
-            // HACK: Despite many efforts to ensure low latency consistent frame
-            // delivery, the best non-lossy mechanism is to buffer 1 extra frame
-            // in the output pipeline. Android does some buffering on its end
-            // in SurfaceFlinger and it's difficult (impossible?) to inspect
-            // the precise state of the buffer queue to the screen after we
-            // release a frame for rendering.
-            //
-            // Since buffering a frame adds latency and we are primarily a
-            // latency-optimized client, rather than one designed for picture-perfect
-            // accuracy, we will synthetically induce a negative pressure on the display
-            // output pipeline by driving the decoder input pipeline under the speed
-            // that the display can refresh. This ensures a constant negative pressure
-            // to keep latency down but does induce a periodic frame loss. However, this
-            // periodic frame loss is *way* less than what we'd already get in Marshmallow's
-            // display pipeline where frames are dropped outside of our control if they land
-            // on the same V-sync.
-            //
-            // Hopefully, we can get rid of this once someone comes up with a better way
-            // to track the state of the pipeline and time frames.
-            int roundedRefreshRate = Math.round(displayRefreshRate);
-            if (!prefConfig.disableFrameDrop && prefConfig.fps >= roundedRefreshRate) {
-                if (roundedRefreshRate <= 49) {
-                    // Let's avoid clearly bogus refresh rates and fall back to legacy rendering
-                    decoderRenderer.enableLegacyFrameDropRendering();
-                    LimeLog.info("Bogus refresh rate: " + roundedRefreshRate);
-                }
-                // HACK: Avoid crashing on some MTK devices
-                else if (roundedRefreshRate == 50 && decoderRenderer.is49FpsBlacklisted()) {
-                    // Use the old rendering strategy on these broken devices
-                    decoderRenderer.enableLegacyFrameDropRendering();
-                } else {
-                    prefConfig.fps = roundedRefreshRate - 1;
-                    LimeLog.info("Adjusting FPS target for screen to " + prefConfig.fps);
-                }
-            }
-
-            StreamConfiguration config = new StreamConfiguration.Builder()
-                    .setResolution(prefConfig.width, prefConfig.height)
-                    .setRefreshRate(prefConfig.fps)
-                    .setApp(new NvApp(appName, appId, willStreamHdr))
-                    .setBitrate(prefConfig.bitrate)
-                    .setEnableSops(prefConfig.enableSops)
-                    .enableLocalAudioPlayback(prefConfig.playHostAudio)
-                    .setMaxPacketSize((remote || prefConfig.width <= 1920) ? 1024 : 1292)
-                    .setRemote(remote)
-                    .setHevcBitratePercentageMultiplier(75)
-                    .setHevcSupported(decoderRenderer.isHevcSupported())
-                    .setEnableHdr(willStreamHdr)
-                    .setAttachedGamepadMask(gamepadMask)
-                    .setClientRefreshRateX100((int) (displayRefreshRate * 100))
-                    .setAudioConfiguration(prefConfig.enable51Surround ?
-                            MoonBridge.AUDIO_CONFIGURATION_51_SURROUND :
-                            MoonBridge.AUDIO_CONFIGURATION_STEREO)
-                    .build();
-
-            // Initialize the connection
-            conn = new NvConnection(host, uniqueId, config, PlatformBinding.getCryptoProvider(this));
-            controllerHandler = new ControllerHandler(this, conn, this, prefConfig);
-
-            InputManager inputManager = (InputManager) getSystemService(Context.INPUT_SERVICE);
-            inputManager.registerInputDeviceListener(controllerHandler, null);
-
-            // Initialize touch contexts
-            for (int i = 0; i < touchContextMap.length; i++) {
-                touchContextMap[i] = new TouchContext(conn, i,
-                        REFERENCE_HORIZ_RES, REFERENCE_VERT_RES,
-                        streamView);
-            }
-
-            // Use sustained performance mode on N+ to ensure consistent
-            // CPU availability
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                getWindow().setSustainedPerformanceMode(true);
-            }
-
-            if (prefConfig.onscreenController) {
-                // create virtual onscreen controller
-                virtualController = new VirtualController(conn,
-                        (FrameLayout) streamView.getParent(),
-                        this);
-                virtualController.refreshLayout();
-            }
-
-            if (prefConfig.usbDriver) {
-                // Start the USB driver
-                bindService(new Intent(this, UsbDriverService.class),
-                        usbDriverServiceConnection, Service.BIND_AUTO_CREATE);
-            }
-
-            if (!decoderRenderer.isAvcSupported()) {
-                if (spinner != null) {
-                    spinner.dismiss();
-                    spinner = null;
-                }
-
-                // If we can't find an AVC decoder, we can't proceed
-                Dialog.displayDialog(this, getResources().getString(R.string.conn_error_title),
-                        "This device or ROM doesn't support hardware accelerated H.264 playback.", true);
-                return;
-            }
-
-            // The connection will be started when the surface gets created
-            streamView.getHolder().addCallback(this);
+        } else {
+            willStreamHdr = false;
         }
+
+        decoderRenderer = new MediaCodecDecoderRenderer(prefConfig,
+                new CrashListener() {
+                    @Override
+                    public void notifyCrash(Exception e) {
+                        // The MediaCodec instance is going down due to a crash
+                        // let's tell the user something when they open the app again
+
+                        // We must use commit because the app will crash when we return from this function
+                        tombstonePrefs.edit().putInt("CrashCount", tombstonePrefs.getInt("CrashCount", 0) + 1).commit();
+                        reportedCrash = true;
+                    }
+                },
+                tombstonePrefs.getInt("CrashCount", 0),
+                connMgr.isActiveNetworkMetered(),
+                willStreamHdr,
+                glPrefs.glRenderer
+        );
+
+        // Don't stream HDR if the decoder can't support it
+        if (willStreamHdr && !decoderRenderer.isHevcMain10Hdr10Supported()) {
+            willStreamHdr = false;
+            Toast.makeText(this, "Decoder does not support HEVC Main10HDR10", Toast.LENGTH_LONG).show();
+        }
+
+        // Display a message to the user if H.265 was forced on but we still didn't find a decoder
+        if (prefConfig.videoFormat == PreferenceConfiguration.FORCE_H265_ON && !decoderRenderer.isHevcSupported()) {
+            Toast.makeText(this, "No H.265 decoder found.\nFalling back to H.264.", Toast.LENGTH_LONG).show();
+        }
+
+        int gamepadMask = ControllerHandler.getAttachedControllerMask(this);
+        if (!prefConfig.multiController && gamepadMask != 0) {
+            // If any gamepads are present in non-MC mode, set only gamepad 1.
+            gamepadMask = 1;
+        }
+        if (prefConfig.onscreenController) {
+            // If we're using OSC, always set at least gamepad 1.
+            gamepadMask |= 1;
+        }
+
+        // Set to the optimal mode for streaming
+        float displayRefreshRate = prepareDisplayForRendering();
+        LimeLog.info("Display refresh rate: " + displayRefreshRate);
+
+        // HACK: Despite many efforts to ensure low latency consistent frame
+        // delivery, the best non-lossy mechanism is to buffer 1 extra frame
+        // in the output pipeline. Android does some buffering on its end
+        // in SurfaceFlinger and it's difficult (impossible?) to inspect
+        // the precise state of the buffer queue to the screen after we
+        // release a frame for rendering.
+        //
+        // Since buffering a frame adds latency and we are primarily a
+        // latency-optimized client, rather than one designed for picture-perfect
+        // accuracy, we will synthetically induce a negative pressure on the display
+        // output pipeline by driving the decoder input pipeline under the speed
+        // that the display can refresh. This ensures a constant negative pressure
+        // to keep latency down but does induce a periodic frame loss. However, this
+        // periodic frame loss is *way* less than what we'd already get in Marshmallow's
+        // display pipeline where frames are dropped outside of our control if they land
+        // on the same V-sync.
+        //
+        // Hopefully, we can get rid of this once someone comes up with a better way
+        // to track the state of the pipeline and time frames.
+        int roundedRefreshRate = Math.round(displayRefreshRate);
+        if (!prefConfig.disableFrameDrop && prefConfig.fps >= roundedRefreshRate) {
+            if (roundedRefreshRate <= 49) {
+                // Let's avoid clearly bogus refresh rates and fall back to legacy rendering
+                decoderRenderer.enableLegacyFrameDropRendering();
+                LimeLog.info("Bogus refresh rate: " + roundedRefreshRate);
+            }
+            // HACK: Avoid crashing on some MTK devices
+            else if (roundedRefreshRate == 50 && decoderRenderer.is49FpsBlacklisted()) {
+                // Use the old rendering strategy on these broken devices
+                decoderRenderer.enableLegacyFrameDropRendering();
+            } else {
+                prefConfig.fps = roundedRefreshRate - 1;
+                LimeLog.info("Adjusting FPS target for screen to " + prefConfig.fps);
+            }
+        }
+
+        StreamConfiguration config = new StreamConfiguration.Builder()
+                .setResolution(prefConfig.width, prefConfig.height)
+                .setRefreshRate(prefConfig.fps)
+                .setApp(new NvApp(appName, appId, willStreamHdr))
+                .setBitrate(prefConfig.bitrate)
+                .setEnableSops(prefConfig.enableSops)
+                .enableLocalAudioPlayback(prefConfig.playHostAudio)
+                .setMaxPacketSize((remote || prefConfig.width <= 1920) ? 1024 : 1292)
+                .setRemote(remote)
+                .setHevcBitratePercentageMultiplier(75)
+                .setHevcSupported(decoderRenderer.isHevcSupported())
+                .setEnableHdr(willStreamHdr)
+                .setAttachedGamepadMask(gamepadMask)
+                .setClientRefreshRateX100((int) (displayRefreshRate * 100))
+                .setAudioConfiguration(prefConfig.enable51Surround ?
+                        MoonBridge.AUDIO_CONFIGURATION_51_SURROUND :
+                        MoonBridge.AUDIO_CONFIGURATION_STEREO)
+                .build();
+
+        // Initialize the connection
+        conn = new NvConnection(host, uniqueId, config, PlatformBinding.getCryptoProvider(this));
+        controllerHandler = new ControllerHandler(this, conn, this, prefConfig);
+
+        InputManager inputManager = (InputManager) getSystemService(Context.INPUT_SERVICE);
+        inputManager.registerInputDeviceListener(controllerHandler, null);
+
+        // Initialize touch contexts
+        for (int i = 0; i < touchContextMap.length; i++) {
+            touchContextMap[i] = new TouchContext(conn, i,
+                    REFERENCE_HORIZ_RES, REFERENCE_VERT_RES,
+                    streamView);
+        }
+
+        // Use sustained performance mode on N+ to ensure consistent
+        // CPU availability
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            getWindow().setSustainedPerformanceMode(true);
+        }
+
+        if (prefConfig.onscreenController) {
+            // create virtual onscreen controller
+            virtualController = new VirtualController(conn,
+                    (FrameLayout) streamView.getParent(),
+                    this);
+            virtualController.refreshLayout();
+        }
+
+        if (prefConfig.usbDriver) {
+            // Start the USB driver
+            bindService(new Intent(this, UsbDriverService.class),
+                    usbDriverServiceConnection, Service.BIND_AUTO_CREATE);
+        }
+
+        if (!decoderRenderer.isAvcSupported()) {
+            if (spinner != null) {
+                spinner.dismiss();
+                spinner = null;
+            }
+
+            // If we can't find an AVC decoder, we can't proceed
+            Dialog.displayDialog(this, getResources().getString(R.string.conn_error_title),
+                    "This device or ROM doesn't support hardware accelerated H.264 playback.", true);
+            return;
+        }
+
+        // The connection will be started when the surface gets created
+        streamView.getHolder().addCallback(this);
+
     }
 
     @Override

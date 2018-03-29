@@ -593,9 +593,9 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                 UiHelper.displayQuitConfirmationDialog(this, new Runnable() {
                     @Override
                     public void run() {
-                        ServerHelper.doQuit(PcView.this,
+                        /*ServerHelper.doQuit(PcView.this,
                                 ServerHelper.getCurrentAddressFromComputer(computer.details),
-                                new NvApp("app", 0, false), managerBinder, null);
+                                new NvApp("app", 0, false), managerBinder, null);*/
                     }
                 }, null);
                 return true;
