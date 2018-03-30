@@ -368,7 +368,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
                     @Override
                     public void run() {
                         suspendGridUpdates = true;
-                        /*ServerHelper.doQuit(AppView.this,
+                        ServerHelper.doQuit(AppView.this,
                                 ServerHelper.getCurrentAddressFromComputer(computer),
                                 app.app, managerBinder, new Runnable() {
                             @Override
@@ -379,7 +379,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
                                     poller.pollNow();
                                 }
                             }
-                        });*/
+                        });
                     }
                 }, null);
                 return true;

@@ -31,7 +31,6 @@ public class ServerHelper {
     public static Intent createStartIntent(Activity parent, NvApp app, ComputerDetails computer,
                                            ComputerManagerService.ComputerManagerBinder managerBinder) {
         Intent intent = new Intent(parent, Game.class);
-        intent = putExtras(intent, app, computer, managerBinder);
         return intent;
     }
 
@@ -53,26 +52,26 @@ public class ServerHelper {
     public static void doStart(Activity parent, NvApp app, ComputerDetails computer,
                                ComputerManagerService.ComputerManagerBinder managerBinder) {
 
-
-        //createStartIntent(parent, app, computer, managerBinder);
-
-        //if (PreferenceConfiguration.readPreferences(this).enableDaydream) {
+        if (PreferenceConfiguration.readPreferences(parent).enableDaydream) {
         api = DaydreamApi.create(parent);
-        if (api  != null) {
-            Intent intent = DaydreamApi.createVrIntent(
-                    new ComponentName(parent, GameDaydream.class));
-            intent.setData(parent.getIntent().getData());
-            intent = putExtras(intent,app, computer, managerBinder);
-            api.launchInVr(intent);
-            api.close();
+            if (api  != null) {
+                Intent intent = DaydreamApi.createVrIntent(
+                        new ComponentName(parent, GameDaydream.class));
+                intent.setData(parent.getIntent().getData());
+                intent = putExtras(intent, app, computer, managerBinder);
+                api.launchInVr(intent);
+                api.close();
+            }else{
+                //TODO device not compatible
+            }
+        }else {
+            Intent intent  = createStartIntent(parent, app, computer, managerBinder);
+            intent = putExtras(intent, app, computer, managerBinder);
+            parent.startActivity(intent);
         }
-        //finish();
-        //}else {
-        //    parent.startActivity(createStartIntent(parent, app, computer, managerBinder));
-        //}
     }
 
-    /*public static void doQuit(final Activity parent,
+    public static void doQuit(final Activity parent,
                               final String address,
                               final NvApp app,
                               final ComputerManagerService.ComputerManagerBinder managerBinder,
@@ -121,5 +120,5 @@ public class ServerHelper {
                 });
             }
         }).start();
-    }*/
+    }
 }
