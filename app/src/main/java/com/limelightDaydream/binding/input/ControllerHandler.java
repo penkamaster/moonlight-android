@@ -730,7 +730,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
             case KeyEvent.KEYCODE_DPAD_CENTER:
             case KeyEvent.KEYCODE_DPAD_UP:
             case KeyEvent.KEYCODE_DPAD_DOWN:
-                return 0;
+                return event.getKeyCode();
             }
         }
         else if (context.hatXAxis == -1 &&
